@@ -1,0 +1,11 @@
+[package]
+name = "cemconv"
+version = "0.1.0"
+authors = ["coderbot16 <coderbot16@gmail.com>"]
+
+[dependencies]
+cem = "0.1"
+structopt = "0.1.6"
+structopt-derive = "0.1.6"
+wavefront_obj = "5.1.0"
+cgmath = "0.16"
