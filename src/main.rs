@@ -57,7 +57,7 @@ fn main() {
 	let stdin = io::stdin();
 	let stdout = io::stdout();
 
-	match (opt.input, opt.output) {
+	let result = match (opt.input, opt.output) {
 		(None, None) => convert (
 			stdin.lock(),
 			stdout.lock(),
@@ -66,23 +66,51 @@ fn main() {
 		),
 		(None, Some(path)) => convert (
 			stdin.lock(),
-			File::open(path).unwrap(),
+			match File::create(path) {
+				Ok(file) => file,
+				Err(e) => {
+					eprintln!("Failed to create output file: {}", e);
+					return
+				}
+			},
 			input_format,
 			format
 		),
 		(Some(path), None) => convert (
-			File::open(path).unwrap(),
+			match File::open(path) {
+				Ok(file) => file,
+				Err(e) => {
+					eprintln!("Failed open input file: {}", e);
+					return
+				}
+			},
 			stdout.lock(),
 			input_format,
 			format
 		),
 		(Some(input), Some(output)) => convert (
-			File::open(input).unwrap(),
-			File::open(output).unwrap(),
+			match File::open(input) {
+				Ok(file) => file,
+				Err(e) => {
+					eprintln!("Failed open input file: {}", e);
+					return
+				}
+			},
+			match File::create(output) {
+				Ok(file) => file,
+				Err(e) => {
+					eprintln!("Failed to create output file: {}", e);
+					return
+				}
+			},
 			input_format,
 			format
 		)
-	}.unwrap();
+	};
+
+	if let Err(e) = result {
+		eprintln!("Error during conversion: {}", e);
+	}
 }
 
 fn convert<I, O>(mut i: I, mut o: O, input_format: Format, format: Format) -> io::Result<()> where I: Read, O: Write {
