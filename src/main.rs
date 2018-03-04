@@ -66,10 +66,10 @@ fn main() {
 		),
 		(None, Some(path)) => convert (
 			stdin.lock(),
-			match File::create(path) {
+			match File::create(&path) {
 				Ok(file) => file,
 				Err(e) => {
-					eprintln!("Failed to create output file: {}", e);
+					eprintln!("error: failed to create the output file at {} ({})", path, e);
 					return
 				}
 			},
@@ -77,10 +77,10 @@ fn main() {
 			format
 		),
 		(Some(path), None) => convert (
-			match File::open(path) {
+			match File::open(&path) {
 				Ok(file) => file,
 				Err(e) => {
-					eprintln!("Failed open input file: {}", e);
+					eprintln!("error: failed to open the input file at {} ({})", path, e);
 					return
 				}
 			},
@@ -89,17 +89,17 @@ fn main() {
 			format
 		),
 		(Some(input), Some(output)) => convert (
-			match File::open(input) {
+			match File::open(&input) {
 				Ok(file) => file,
 				Err(e) => {
-					eprintln!("Failed open input file: {}", e);
+					eprintln!("error: failed open the input file at {} ({})", input, e);
 					return
 				}
 			},
-			match File::create(output) {
+			match File::create(&output) {
 				Ok(file) => file,
 				Err(e) => {
-					eprintln!("Failed to create output file: {}", e);
+					eprintln!("error: failed to create the output file at {} ({})", output, e);
 					return
 				}
 			},
@@ -109,7 +109,7 @@ fn main() {
 	};
 
 	if let Err(e) = result {
-		eprintln!("Error during conversion: {}", e);
+		eprintln!("error: conversion failed: {}", e);
 	}
 }
 
