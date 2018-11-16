@@ -5,6 +5,8 @@ extern crate structopt;
 extern crate structopt_derive;
 extern crate wavefront_obj;
 
+mod collada_export;
+
 use wavefront_obj::obj::{self, Object, Primitive, VTNIndex};
 use std::fs::File;
 use std::collections::HashMap;
@@ -28,7 +30,8 @@ struct Opt {
 
 enum Format {
 	Cem { version: (u16, u16), frame_index: usize },
-	Obj
+	Obj,
+	Collada
 }
 
 impl Format {
@@ -41,6 +44,7 @@ impl Format {
 			"cem" => Format::Cem { version: (2, 0), frame_index },
 			"ssmf" => Format::Cem { version: (2, 0), frame_index },
 			"obj" => Format::Obj,
+			"collada" => Format::Collada,
 			_ => return None
 		})
 	}
@@ -161,6 +165,19 @@ fn convert<I, O>(mut i: I, mut o: O, input_format: Format, format: Format) -> io
 				o.write_all(buffer.as_bytes())
 			} else {
 				unimplemented!("Cannon convert non-CEMv2 files to OBJ yet.")
+			}
+		},
+		(Format::Cem { version: (_, _), frame_index }, Format::Collada) => {
+			let header = ModelHeader::read(&mut i)?;
+
+			if header == V2::HEADER {
+				let scene = Scene::<V2>::read_without_header(&mut i)?;
+
+				let buffer = collada_export::convert(scene);
+
+				o.write_all(buffer.as_bytes())
+			} else {
+				unimplemented!("Cannon convert non-CEMv2 files to COLLADA yet.")
 			}
 		},
 		_ => unimplemented!()
