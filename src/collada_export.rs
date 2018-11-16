@@ -13,7 +13,7 @@ pub const HEADER: &'static str = r#"<?xml version="1.0" encoding="utf-8"?>
     <created>2018-01-01T00:00:00</created>
     <modified>2018-01-01T00:00:00</modified>
     <unit name="meter" meter="1"/>
-    <up_axis>Z_UP</up_axis>
+    <up_axis>Y_UP</up_axis>
   </asset>
   <library_cameras/>
   <library_lights/>
@@ -145,43 +145,52 @@ pub fn convert(cem: Scene<V2>) -> String {
 	}
 
 	string.push_str("  </library_geometries>\n");
+	string.push_str("  <library_controllers>\n");
 
-	/*
-	<library_controllers>
-    <controller id="MODELNAME-morph" name="MODELNAME-morph">
-      <morph source="#MODELNAME_002-mesh" method="NORMALIZED">
-        <source id="MODELNAME-targets">
-          <IDREF_array id="MODELNAME-targets-array" count="1">MODELNAME-mesh_morph_men_prophet_10_frame0</IDREF_array>
-          <technique_common>
-            <accessor source="#MODELNAME-targets-array" count="1" stride="1">
-              <param name="IDREF" type="IDREF"/>
-            </accessor>
-          </technique_common>
-        </source>
-        <source id="MODELNAME-weights">
-          <float_array id="MODELNAME-weights-array" count="1">0</float_array>
-          <technique_common>
-            <accessor source="#MODELNAME-weights-array" count="1" stride="1">
-              <param name="MORPH_WEIGHT" type="float"/>
-            </accessor>
-          </technique_common>
-        </source>
-        <targets>
-          <input semantic="MORPH_TARGET" source="#MODELNAME-targets"/>
-          <input semantic="MORPH_WEIGHT" source="#MODELNAME-weights"/>
-        </targets>
-      </morph>
-    </controller>
-  </library_controllers>
-	*/
+	if model.frames.len() > 1 {
+		writeln!(string, "    <controller id=\"{0}-morph\" name=\"{0}-morph\">", name);
+		writeln!(string, "      <morph source=\"#{}-mesh\" method=\"NORMALIZED\">", format!("{}_frame{}", name, 0));
+
+		// Targets Array
+		writeln!(string, "        <source id=\"{}-targets\">", name);
+		writeln!(string, "          <IDREF_array id=\"{}-targets-array\" count=\"{}\">", name, model.frames.len()-1);
+
+		for frame_index in 1..model.frames.len() {
+			writeln!(string, "            {}_frame{}-mesh", name, frame_index);
+		}
+
+		string.push_str("          </IDREF_array>\n");
+		writeln!(string, r##"<technique_common><accessor source="#{}-targets-array" count="{}" stride="1"><param name="IDREF" type="IDREF"/></accessor></technique_common>"##, name, model.frames.len()-1);
+
+		string.push_str("        </source>\n");
+
+		// Weights Array
+		writeln!(string, "        <source id=\"{}-weights\">", name);
+		write!(string, "          <float_array id=\"{}-weights-array\" count=\"{}\">", name, model.frames.len()-1);
+
+		for _ in 1..model.frames.len() {
+			string.push_str("0 ");
+		}
+
+		string.push_str("</float_array>\n");
+		writeln!(string, r##"<technique_common><accessor source="#{}-weights-array" count="{}" stride="1"><param name="MORPH_WEIGHT" type="float"/></accessor></technique_common>"##, name, model.frames.len()-1);
+
+		string.push_str("        </source>\n");
+
+		string.push_str("        <targets>\n");
+		writeln!(string, "          <input semantic=\"MORPH_TARGET\" source=\"#{}-targets\"/>", name);
+		writeln!(string, "          <input semantic=\"MORPH_WEIGHT\" source=\"#{}-weights\"/>", name);
+		string.push_str("        </targets>\n");
+		string.push_str("      </morph>\n");
+		string.push_str("    </controller>\n");
+	}
+
+	string.push_str("  </library_controllers>\n");
 
 	string.push_str(r##"  <library_visual_scenes><visual_scene id="Scene" name="Scene">"##);
 	string.push('\n');
 
-	for frame_index in 0..model.frames.len() {
-		// Alternate transform: 1 0 0 {1} 0 1 0 0 0 0 1 0 0 0 0 1
-		writeln!(string, r##"<node id="{0}" name="{0}" type="NODE"><matrix sid="transform">1 0 0 {1} 0 0 -1 0 0 1 0 0 0 0 0 1</matrix><instance_geometry url="#{0}-mesh"/></node>"##, format!("{}_frame{}", name, frame_index), frame_index).unwrap();
-	}
+	writeln!(string, r##"<node id="{0}" name="{0}" type="NODE"><matrix sid="transform">1 0 0 {1} 0 1 0 0 0 0 1 0 0 0 0 1</matrix><instance_geometry url="#{0}-mesh"/></node>"##, format!("{}_frame{}", name, 0), 0).unwrap();
 
 	string.push_str(r##"  </visual_scene></library_visual_scenes>"##);
 	string.push('\n');
