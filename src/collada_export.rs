@@ -61,7 +61,7 @@ impl<'n> fmt::Display for Geometry<'n> {
 
 			write_source("mesh-positions", &self.mesh_positions, 3, FORMAT_POS)?;
 			write_source("mesh-normals", &self.mesh_normals, 3, FORMAT_POS)?;
-			write_source("mesh-map", &self.mesh_map, 3, FORMAT_TEX)?;
+			write_source("mesh-map", &self.mesh_map, 2, FORMAT_TEX)?;
 		}
 
 		writeln!(f, r##"        <vertices id="{0}-mesh-vertices"><input semantic="POSITION" source="#{0}-mesh-positions"/></vertices>"##, self.name)?;
@@ -138,7 +138,7 @@ pub fn convert(cem: Scene<V2>) -> String {
 			geometry.mesh_normals[index*3 + 2] = normal.z;
 
 			geometry.mesh_map[index*2 + 0] = vertex.texture.x;
-			geometry.mesh_map[index*2 + 1] = vertex.texture.y;
+			geometry.mesh_map[index*2 + 1] = 1.0 - vertex.texture.y;
 		}
 
 		writeln!(string, "{}", geometry).unwrap();

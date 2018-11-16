@@ -210,7 +210,7 @@ fn obj_to_cem(i: &Object) -> V2 {
 				vertices.push(v2::Vertex {
 					position,
 					normal,
-					texture: Point2 { x: texture.u as f32, y: texture.v as f32 },
+					texture: Point2 { x: texture.u as f32, y: 1.0 - texture.v as f32 },
 				});
 
 				index
@@ -285,7 +285,7 @@ fn cem2_to_obj(cem: V2, frame_index: usize) -> String {
 
 		writeln!(string, "v {} {} {}", position.x, position.y, position.z).unwrap();
 		writeln!(string, "vn {} {} {}", normal.x, normal.y, normal.z).unwrap();
-		writeln!(string, "vt {} {}", texture.x, texture.y).unwrap();
+		writeln!(string, "vt {} {}", texture.x, 1.0 - texture.y).unwrap();
 	}
 
 	for &v2::Material { ref name, texture, ref triangles, vertex_offset, vertex_count: _vertex_count, ref texture_name } in &cem.materials {
