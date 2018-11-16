@@ -20,38 +20,48 @@ struct Opt {
 	input_format: Option<String>,
 	#[structopt(short = "f", long = "format", help = "Format to use as the output")]
 	format: String,
+	#[structopt(short = "n", long = "frame", help = "Frame number in the CEM file to extract")]
+	frame_index: Option<usize>,
 	#[structopt(help = "Output file, default is stdout")]
 	output: Option<String>
 }
 
 enum Format {
-	Cem(u16, u16),
+	Cem { version: (u16, u16), frame_index: usize },
 	Obj
+}
+
+impl Format {
+	fn parse(format: &str, frame_index: Option<usize>) -> Option<Self> {
+		let frame_index = frame_index.unwrap_or(0);
+
+		Some(match format {
+			"cem1.3" => Format::Cem { version: (1 ,3), frame_index },
+			"cem2" => Format::Cem { version: (2, 0), frame_index },
+			"cem" => Format::Cem { version: (2, 0), frame_index },
+			"ssmf" => Format::Cem { version: (2, 0), frame_index },
+			"obj" => Format::Obj,
+			_ => return None
+		})
+	}
 }
 
 fn main() {
 	use structopt::StructOpt;
 
 	let opt = Opt::from_args();
-	let format = match &opt.format as &str {
-		"cem1.3" => Format::Cem(1 ,3),
-		"cem2" => Format::Cem(2, 0),
-		"cem" => Format::Cem(2, 0),
-		"ssmf" => Format::Cem(2, 0),
-		"obj" => Format::Obj,
-		_ => {
+
+	let format = match Format::parse(&opt.format, opt.frame_index) {
+		Some(format) => format,
+		None => {
 			eprintln!("Unrecognized output format {:?}", opt.format);
 			return;
 		}
 	};
 
-	let input_format = match opt.input_format.as_ref().map(|s| s as &str) {
-		Some("cem1.3") => Format::Cem(1, 3),
-		Some("cem2")   => Format::Cem(2, 0),
-		Some("cem")    => Format::Cem(2, 0),
-		Some("ssmf")   => Format::Cem(2, 0),
-		Some("obj")    => Format::Obj,
-		Some(_) | None => Format::Cem(2, 0)
+	let input_format = match Format::parse(opt.input_format.as_ref().map(|s| s as &str).unwrap_or(""), opt.frame_index) {
+		Some(format) => format,
+		None => Format::Cem { version: (2, 0), frame_index: opt.frame_index.unwrap_or(0) }
 	};
 
 	let stdin = io::stdin();
@@ -115,7 +125,7 @@ fn main() {
 
 fn convert<I, O>(mut i: I, mut o: O, input_format: Format, format: Format) -> io::Result<()> where I: Read, O: Write {
 	match (input_format, format) {
-		(Format::Obj, Format::Cem(2, 0)) => {
+		(Format::Obj, Format::Cem { version: (2, 0), frame_index: _ }) => {
 			let mut buffer = String::new();
 			i.read_to_string(&mut buffer)?;
 
@@ -127,7 +137,7 @@ fn convert<I, O>(mut i: I, mut o: O, input_format: Format, format: Format) -> io
 
 			Scene::root(model).write(&mut o)
 		},
-		(Format::Cem(2, 0), Format::Cem(2, 0)) => {
+		(Format::Cem { version: (2, 0), frame_index: _ }, Format::Cem { version: (2, 0), frame_index: _ }) => {
 			let header = ModelHeader::read(&mut i)?;
 
 			if header == V2::HEADER {
@@ -136,13 +146,17 @@ fn convert<I, O>(mut i: I, mut o: O, input_format: Format, format: Format) -> io
 				unimplemented!("Cannon rewrite non-CEMv2 files yet.")
 			}
 		},
-		(Format::Cem(_, _), Format::Obj) => {
+		(Format::Cem { version: (_, _), frame_index }, Format::Obj) => {
 			let header = ModelHeader::read(&mut i)?;
 
 			if header == V2::HEADER {
 				let scene = Scene::<V2>::read_without_header(&mut i)?;
 
-				let buffer = cem2_to_obj(scene.model);
+				if frame_index >= scene.model.frames.len() {
+					return Err(io::Error::new(io::ErrorKind::InvalidInput, format!("Tried to extract frame index {} from a CEM file that only has {} frames", frame_index, scene.model.frames.len())));
+				}
+
+				let buffer = cem2_to_obj(scene.model, frame_index);
 
 				o.write_all(buffer.as_bytes())
 			} else {
@@ -237,11 +251,11 @@ fn obj_to_cem(i: &Object) -> V2 {
 	}
 }
 
-fn cem2_to_obj(cem: V2) -> String {
+fn cem2_to_obj(cem: V2, frame_index: usize) -> String {
 	use std::fmt::Write;
 
 	let triangle_data = &cem.lod_levels[0];
-	let frame = &cem.frames[0];
+	let frame = &cem.frames[frame_index];
 
 	let mut string = String::new();
 
