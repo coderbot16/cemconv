@@ -137,7 +137,7 @@ fn convert<I, O>(mut i: I, mut o: O, input_format: Format, format: Format) -> io
 				|parse| io::Error::new(io::ErrorKind::InvalidData, format!("Error in OBJ file on line {}: {}", parse.line_number, parse.message))
 			)?;
 
-			let model = obj_to_cem(&obj.objects[0]);
+			let model = obj_to_cem(&obj.objects);
 
 			Scene::root(model).write(&mut o)
 		},
@@ -184,7 +184,7 @@ fn convert<I, O>(mut i: I, mut o: O, input_format: Format, format: Format) -> io
 	}
 }
 
-fn obj_to_cem(i: &Object) -> V2 {
+fn obj_to_cem(i: &[Object]) -> V2 {
 	let mut triangles = Vec::new();
 	let mut vertices = Vec::new();
 
@@ -193,8 +193,8 @@ fn obj_to_cem(i: &Object) -> V2 {
 	{
 		let mut vertex_associations = HashMap::new();
 
-		let mut resolve_index = |v: VTNIndex| {
-			*vertex_associations.entry(v).or_insert_with(|| {
+		let mut resolve_index = |i: &Object, idx: usize, v: VTNIndex| {
+			*vertex_associations.entry((idx, v)).or_insert_with(|| {
 				let index = vertices.len();
 
 				let position = i.vertices[v.0];
@@ -217,20 +217,29 @@ fn obj_to_cem(i: &Object) -> V2 {
 			})
 		};
 
-		for geometry in &i.geometry {
-			for primitive in geometry.shapes.iter().map(|shape| shape.primitive) {
-				match primitive {
-					Primitive::Triangle(v0, v1, v2) => {
-						triangles.push((
-							resolve_index(v0) as u32,
-							resolve_index(v1) as u32,
-							resolve_index(v2) as u32
-						));
-					},
-					_ => () // Skip lines and points, not supported.
+		for (idx, i) in i.iter().enumerate() {
+			for geometry in &i.geometry {
+				for primitive in geometry.shapes.iter().map(|shape| shape.primitive) {
+					match primitive {
+						Primitive::Triangle(v0, v1, v2) => {
+							triangles.push((
+								resolve_index(i, idx, v0) as u32,
+								resolve_index(i, idx, v1) as u32,
+								resolve_index(i, idx, v2) as u32
+							));
+						},
+						_ => () // Skip lines and points, not supported.
+					}
 				}
 			}
 		}
+	}
+
+	// It appears that there is some limit on the vertex count. This needs to be investigated further, but it appears that
+	// adding more than 2442 instantly crashes the game on model load.
+	if vertices.len() > 2442 {
+		eprintln!("warning: Vertex count exceeds 2442, this will most likely crash the game. You have been warned.");
+		eprintln!("{} vertices, {} triangles", vertices.len(), triangles.len());
 	}
 
 	// Create the model

@@ -85,14 +85,8 @@ impl<'n> fmt::Display for Geometry<'n> {
 	}
 }
 
-pub fn convert(cem: Scene<V2>) -> String {
-	let mut string = String::new();
-	let model = cem.model;
-	let name = "scene_root";
+fn write_meshes(name: &str, model: &V2, string: &mut String) {
 	let triangle_data = &model.lod_levels[0];
-
-	string.push_str(HEADER);
-
 	let mut polygons = vec![0; model.lod_levels[0].len() * 3];
 
 	for &v2::Material { ref name, texture, ref triangles, vertex_offset, vertex_count: _vertex_count, ref texture_name } in &model.materials {
@@ -143,11 +137,22 @@ pub fn convert(cem: Scene<V2>) -> String {
 
 		writeln!(string, "{}", geometry).unwrap();
 	}
+}
+
+pub fn convert(cem: Scene<V2>) -> String {
+	let mut string = String::new();
+
+	string.push_str(HEADER);
+
+	write_meshes("scene_root", &cem.model, &mut string);
 
 	string.push_str("  </library_geometries>\n");
 	string.push_str("  <library_controllers>\n");
 
-	if model.frames.len() > 1 {
+	let name = "scene_root"; // TODO
+	let model = &cem.model;
+
+	if cem.model.frames.len() > 1 {
 		writeln!(string, "    <controller id=\"{0}-morph\" name=\"{0}-morph\">", name);
 		writeln!(string, "      <morph source=\"#{}-mesh\" method=\"NORMALIZED\">", format!("{}_frame{}", name, 0));
 
