@@ -29,8 +29,8 @@ struct Opt {
 }
 
 enum Format {
-	Cem { version: (u16, u16), frame_index: usize },
-	Obj,
+	Cem { version: (u16, u16) },
+	Obj { frame_index: usize },
 	Collada
 }
 
@@ -39,11 +39,11 @@ impl Format {
 		let frame_index = frame_index.unwrap_or(0);
 
 		Some(match format {
-			"cem1.3" => Format::Cem { version: (1 ,3), frame_index },
-			"cem2" => Format::Cem { version: (2, 0), frame_index },
-			"cem" => Format::Cem { version: (2, 0), frame_index },
-			"ssmf" => Format::Cem { version: (2, 0), frame_index },
-			"obj" => Format::Obj,
+			"cem1.3" => Format::Cem { version: (1 ,3) },
+			"cem2" => Format::Cem { version: (2, 0) },
+			"cem" => Format::Cem { version: (2, 0)},
+			"ssmf" => Format::Cem { version: (2, 0) },
+			"obj" => Format::Obj { frame_index },
 			"collada" => Format::Collada,
 			_ => return None
 		})
@@ -65,7 +65,7 @@ fn main() {
 
 	let input_format = match Format::parse(opt.input_format.as_ref().map(|s| s as &str).unwrap_or(""), opt.frame_index) {
 		Some(format) => format,
-		None => Format::Cem { version: (2, 0), frame_index: opt.frame_index.unwrap_or(0) }
+		None => Format::Cem { version: (2, 0) }
 	};
 
 	let stdin = io::stdin();
@@ -129,7 +129,7 @@ fn main() {
 
 fn convert<I, O>(mut i: I, mut o: O, input_format: Format, format: Format) -> io::Result<()> where I: Read, O: Write {
 	match (input_format, format) {
-		(Format::Obj, Format::Cem { version: (2, 0), frame_index: _ }) => {
+		(Format::Obj { frame_index: _ }, Format::Cem { version: (2, 0) }) => {
 			let mut buffer = String::new();
 			i.read_to_string(&mut buffer)?;
 
@@ -141,7 +141,7 @@ fn convert<I, O>(mut i: I, mut o: O, input_format: Format, format: Format) -> io
 
 			Scene::root(model).write(&mut o)
 		},
-		(Format::Cem { version: (2, 0), frame_index: _ }, Format::Cem { version: (2, 0), frame_index: _ }) => {
+		(Format::Cem { version: (2, 0) }, Format::Cem { version: (2, 0) }) => {
 			let header = ModelHeader::read(&mut i)?;
 
 			if header == V2::HEADER {
@@ -150,7 +150,7 @@ fn convert<I, O>(mut i: I, mut o: O, input_format: Format, format: Format) -> io
 				unimplemented!("Cannon rewrite non-CEMv2 files yet.")
 			}
 		},
-		(Format::Cem { version: (_, _), frame_index }, Format::Obj) => {
+		(Format::Cem { version: (_, _) }, Format::Obj { frame_index }) => {
 			let header = ModelHeader::read(&mut i)?;
 
 			if header == V2::HEADER {
@@ -167,7 +167,7 @@ fn convert<I, O>(mut i: I, mut o: O, input_format: Format, format: Format) -> io
 				unimplemented!("Cannon convert non-CEMv2 files to OBJ yet.")
 			}
 		},
-		(Format::Cem { version: (_, _), frame_index }, Format::Collada) => {
+		(Format::Cem { version: (_, _) }, Format::Collada) => {
 			let header = ModelHeader::read(&mut i)?;
 
 			if header == V2::HEADER {

@@ -1,5 +1,5 @@
-use cem::{ModelHeader, v2, V2, Scene, Model, Encode};
-use cgmath::{Point2, Point3, Vector3, Matrix4, Deg, InnerSpace};
+use cem::{v2, V2, Scene};
+use cgmath::{Point3, Matrix4, Deg, InnerSpace};
 use std::fmt::{self, Write};
 
 // TODO: Date and Time modified
@@ -153,38 +153,38 @@ pub fn convert(cem: Scene<V2>) -> String {
 	let model = &cem.model;
 
 	if cem.model.frames.len() > 1 {
-		writeln!(string, "    <controller id=\"{0}-morph\" name=\"{0}-morph\">", name);
-		writeln!(string, "      <morph source=\"#{}-mesh\" method=\"NORMALIZED\">", format!("{}_frame{}", name, 0));
+		writeln!(string, "    <controller id=\"{0}-morph\" name=\"{0}-morph\">", name).unwrap();
+		writeln!(string, "      <morph source=\"#{}-mesh\" method=\"NORMALIZED\">", format!("{}_frame{}", name, 0)).unwrap();
 
 		// Targets Array
-		writeln!(string, "        <source id=\"{}-targets\">", name);
-		writeln!(string, "          <IDREF_array id=\"{}-targets-array\" count=\"{}\">", name, model.frames.len()-1);
+		writeln!(string, "        <source id=\"{}-targets\">", name).unwrap();
+		writeln!(string, "          <IDREF_array id=\"{}-targets-array\" count=\"{}\">", name, model.frames.len()-1).unwrap();
 
 		for frame_index in 1..model.frames.len() {
-			writeln!(string, "            {}_frame{}-mesh", name, frame_index);
+			writeln!(string, "            {}_frame{}-mesh", name, frame_index).unwrap();
 		}
 
 		string.push_str("          </IDREF_array>\n");
-		writeln!(string, r##"<technique_common><accessor source="#{}-targets-array" count="{}" stride="1"><param name="IDREF" type="IDREF"/></accessor></technique_common>"##, name, model.frames.len()-1);
+		writeln!(string, r##"<technique_common><accessor source="#{}-targets-array" count="{}" stride="1"><param name="IDREF" type="IDREF"/></accessor></technique_common>"##, name, model.frames.len()-1).unwrap();
 
 		string.push_str("        </source>\n");
 
 		// Weights Array
-		writeln!(string, "        <source id=\"{}-weights\">", name);
-		write!(string, "          <float_array id=\"{}-weights-array\" count=\"{}\">", name, model.frames.len()-1);
+		writeln!(string, "        <source id=\"{}-weights\">", name).unwrap();
+		write!(string, "          <float_array id=\"{}-weights-array\" count=\"{}\">", name, model.frames.len()-1).unwrap();
 
 		for _ in 1..model.frames.len() {
 			string.push_str("0 ");
 		}
 
 		string.push_str("</float_array>\n");
-		writeln!(string, r##"<technique_common><accessor source="#{}-weights-array" count="{}" stride="1"><param name="MORPH_WEIGHT" type="float"/></accessor></technique_common>"##, name, model.frames.len()-1);
+		writeln!(string, r##"<technique_common><accessor source="#{}-weights-array" count="{}" stride="1"><param name="MORPH_WEIGHT" type="float"/></accessor></technique_common>"##, name, model.frames.len()-1).unwrap();
 
 		string.push_str("        </source>\n");
 
 		string.push_str("        <targets>\n");
-		writeln!(string, "          <input semantic=\"MORPH_TARGET\" source=\"#{}-targets\"/>", name);
-		writeln!(string, "          <input semantic=\"MORPH_WEIGHT\" source=\"#{}-weights\"/>", name);
+		writeln!(string, "          <input semantic=\"MORPH_TARGET\" source=\"#{}-targets\"/>", name).unwrap();
+		writeln!(string, "          <input semantic=\"MORPH_WEIGHT\" source=\"#{}-weights\"/>", name).unwrap();
 		string.push_str("        </targets>\n");
 		string.push_str("      </morph>\n");
 		string.push_str("    </controller>\n");
