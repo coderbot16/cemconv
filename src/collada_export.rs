@@ -89,7 +89,7 @@ fn write_meshes(name: &str, model: &V2, string: &mut String) {
 	let triangle_data = &model.lod_levels[0];
 	let mut polygons = vec![0; model.lod_levels[0].len() * 3];
 
-	for &v2::Material { ref name, texture, ref triangles, vertex_offset, vertex_count: _vertex_count, ref texture_name } in &model.materials {
+	for &v2::Material { name: ref _name, texture: _texture, ref triangles, vertex_offset, vertex_count: _vertex_count, texture_name: ref _texture_name } in &model.materials {
 		let triangle_slice = triangles[0];
 
 		for index in 0..triangle_slice.len {
@@ -109,8 +109,10 @@ fn write_meshes(name: &str, model: &V2, string: &mut String) {
 	}
 
 	for (frame_index, frame) in model.frames.iter().enumerate() {
+		let framed_name = format!("{}_frame{}", name, frame_index);
+
 		let mut geometry = Geometry {
-			name: &format!("{}_frame{}", name, frame_index),
+			name: if frame_index > 0 { &framed_name } else { name },
 			mesh_positions: vec![0.0; frame.vertices.len() * 3],
 			mesh_normals: vec![0.0; frame.vertices.len() * 3],
 			mesh_map: vec![0.0; frame.vertices.len() * 2],
@@ -144,17 +146,17 @@ pub fn convert(cem: Scene<V2>) -> String {
 
 	string.push_str(HEADER);
 
-	write_meshes("scene_root", &cem.model, &mut string);
+	write_meshes("Scene_Root", &cem.model, &mut string);
 
 	string.push_str("  </library_geometries>\n");
 	string.push_str("  <library_controllers>\n");
 
-	let name = "scene_root"; // TODO
+	let name = "Scene_Root"; // TODO
 	let model = &cem.model;
 
 	if cem.model.frames.len() > 1 {
 		writeln!(string, "    <controller id=\"{0}-morph\" name=\"{0}-morph\">", name).unwrap();
-		writeln!(string, "      <morph source=\"#{}-mesh\" method=\"NORMALIZED\">", format!("{}_frame{}", name, 0)).unwrap();
+		writeln!(string, "      <morph source=\"#{}-mesh\" method=\"NORMALIZED\">", name).unwrap();
 
 		// Targets Array
 		writeln!(string, "        <source id=\"{}-targets\">", name).unwrap();
@@ -195,7 +197,7 @@ pub fn convert(cem: Scene<V2>) -> String {
 	string.push_str(r##"  <library_visual_scenes><visual_scene id="Scene" name="Scene">"##);
 	string.push('\n');
 
-	writeln!(string, r##"<node id="{0}" name="{0}" type="NODE"><matrix sid="transform">1 0 0 {1} 0 1 0 0 0 0 1 0 0 0 0 1</matrix><instance_geometry url="#{0}-mesh"/></node>"##, format!("{}_frame{}", name, 0), 0).unwrap();
+	writeln!(string, r##"<node id="{0}" name="{0}" type="NODE"><matrix sid="transform">1 0 0 {1} 0 1 0 0 0 0 1 0 0 0 0 1</matrix><instance_geometry url="#{0}-mesh"/></node>"##, name, 0).unwrap();
 
 	string.push_str(r##"  </visual_scene></library_visual_scenes>"##);
 	string.push('\n');

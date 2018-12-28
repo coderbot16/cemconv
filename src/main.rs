@@ -4,10 +4,14 @@ extern crate structopt;
 #[macro_use]
 extern crate structopt_derive;
 extern crate wavefront_obj;
+extern crate collada;
+extern crate xml;
 
 mod collada_export;
+mod collada_import;
 
 use wavefront_obj::obj::{self, Object, Primitive, VTNIndex};
+use collada::document::ColladaDocument;
 use std::fs::File;
 use std::collections::HashMap;
 use std::io::{self, Read, Write};
@@ -147,7 +151,7 @@ fn convert<I, O>(mut i: I, mut o: O, input_format: Format, format: Format) -> io
 			if header == V2::HEADER {
 				Scene::<V2>::read_without_header(&mut i)?.write(&mut o)
 			} else {
-				unimplemented!("Cannon rewrite non-CEMv2 files yet.")
+				unimplemented!("Cannot rewrite non-CEMv2 files yet.")
 			}
 		},
 		(Format::Cem { version: (_, _) }, Format::Obj { frame_index }) => {
@@ -164,7 +168,7 @@ fn convert<I, O>(mut i: I, mut o: O, input_format: Format, format: Format) -> io
 
 				o.write_all(buffer.as_bytes())
 			} else {
-				unimplemented!("Cannon convert non-CEMv2 files to OBJ yet.")
+				unimplemented!("Cannot convert non-CEMv2 files to OBJ yet.")
 			}
 		},
 		(Format::Cem { version: (_, _) }, Format::Collada) => {
@@ -177,8 +181,17 @@ fn convert<I, O>(mut i: I, mut o: O, input_format: Format, format: Format) -> io
 
 				o.write_all(buffer.as_bytes())
 			} else {
-				unimplemented!("Cannon convert non-CEMv2 files to COLLADA yet.")
+				unimplemented!("Cannot convert non-CEMv2 files to COLLADA yet.")
 			}
+		},
+		(Format::Collada, Format::Cem { version: (2, 0) }) => {
+			let mut buffer = String::new();
+			i.read_to_string(&mut buffer)?;
+
+			let xml = buffer.parse::<xml::Element>().map_err(|e| io::Error::new(io::ErrorKind::InvalidData, format!("{}", e)))?;
+			let model = collada_import::convert(ColladaDocument { root_element: xml });
+
+			Scene::root(model).write(&mut o)
 		},
 		_ => unimplemented!()
 	}
@@ -238,8 +251,8 @@ fn obj_to_cem(i: &[Object]) -> V2 {
 	// It appears that there is some limit on the vertex count. This needs to be investigated further, but it appears that
 	// adding more than 2442 instantly crashes the game on model load.
 	if vertices.len() > 2442 {
-		eprintln!("warning: Vertex count exceeds 2442, this will most likely crash the game. You have been warned.");
-		eprintln!("{} vertices, {} triangles", vertices.len(), triangles.len());
+		eprintln!("warning[cem]: Vertex count exceeds 2442, this will most likely crash the game. You have been warned.");
+		eprintln!("warning[cem]: {} vertices, {} triangles", vertices.len(), triangles.len());
 	}
 
 	// Create the model
