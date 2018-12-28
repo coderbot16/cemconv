@@ -1,6 +1,7 @@
 use cem::{v2, V2, Scene};
 use cgmath::{Point3, Matrix4, Deg, InnerSpace};
 use std::fmt::{self, Write};
+use std::str::FromStr;
 
 // TODO: Date and Time modified
 pub const HEADER: &'static str = r#"<?xml version="1.0" encoding="utf-8"?>
@@ -16,7 +17,6 @@ pub const HEADER: &'static str = r#"<?xml version="1.0" encoding="utf-8"?>
     <up_axis>Y_UP</up_axis>
   </asset>
   <library_cameras/>
-  <library_lights/>
   <library_images/>
   <library_geometries>
 "#;
@@ -85,6 +85,54 @@ impl<'n> fmt::Display for Geometry<'n> {
 	}
 }
 
+struct Light {
+	color: (f32, f32, f32),
+	unk: (u32, u32, u32)
+}
+
+impl FromStr for Light {
+	type Err = &'static str;
+
+	fn from_str(definition: &str) -> Result<Self, Self::Err> {
+		fn split(definition: &str) -> Option<(&str, &str, &str, &str, &str, &str)> {
+			let mut split = definition.split('_');
+
+			split.next()?; // "light"
+
+			let r = split.next()?;
+			let g = split.next()?;
+			let b = split.next()?;
+
+			let i = split.next()?;
+			let j = split.next()?;
+			let k = split.next()?;
+
+			Some((r, g, b, i, j, k))
+		};
+
+		let (r, g, b, i, j, k) = split(definition).ok_or("Invalid light definition")?;
+
+		let (r, g, b, i, j, k) = (
+			r.parse::<u32>().map_err(|_| "failed to parse number")?,
+			g.parse::<u32>().map_err(|_| "failed to parse number")?,
+			b.parse::<u32>().map_err(|_| "failed to parse number")?,
+			i.parse::<u32>().map_err(|_| "failed to parse number")?,
+			j.parse::<u32>().map_err(|_| "failed to parse number")?,
+			k.parse::<u32>().map_err(|_| "failed to parse number")?
+		);
+
+		Ok(Light {
+			color: (
+				(r as f32) / 255.0,
+				(g as f32) / 255.0,
+				(b as f32) / 255.0
+			),
+			unk: (i, j, k)
+		})
+	}
+}
+
+
 fn write_meshes(name: &str, model: &V2, string: &mut String) {
 	let triangle_data = &model.lod_levels[0];
 	let mut polygons = vec![0; model.lod_levels[0].len() * 3];
@@ -149,6 +197,32 @@ pub fn convert(cem: Scene<V2>) -> String {
 	write_meshes("Scene_Root", &cem.model, &mut string);
 
 	string.push_str("  </library_geometries>\n");
+
+	string.push_str("  <library_lights>\n");
+
+	for name in &cem.model.tag_points {
+
+		writeln!(string, "    <light id=\"{}-light\"><technique_common>\n", name).unwrap();
+
+		if name.starts_with("light_") {
+			match name.parse::<Light>() {
+				Ok(light) => {
+
+					writeln!(string, "    <point><color>{} {} {}</color><linear_attenuation>0.3</linear_attenuation></point>\n", light.color.0, light.color.1, light.color.2).unwrap();
+					string.push_str("    </technique_common></light>\n");
+
+					continue;
+				}
+				Err(message) => eprintln!("Failed to parse light \"{}\": {}", name, message)
+			}
+		}
+
+		string.push_str("    <point><color>1.0 1.0 1.0</color><linear_attenuation>0.3</linear_attenuation></point>\n");
+		string.push_str("    </technique_common></light>\n");
+	}
+
+	string.push_str("  </library_lights>\n");
+
 	string.push_str("  <library_controllers>\n");
 
 	let name = "Scene_Root"; // TODO
@@ -197,7 +271,22 @@ pub fn convert(cem: Scene<V2>) -> String {
 	string.push_str(r##"  <library_visual_scenes><visual_scene id="Scene" name="Scene">"##);
 	string.push('\n');
 
-	writeln!(string, r##"<node id="{0}" name="{0}" type="NODE"><matrix sid="transform">1 0 0 {1} 0 1 0 0 0 0 1 0 0 0 0 1</matrix><instance_geometry url="#{0}-mesh"/></node>"##, name, 0).unwrap();
+	writeln!(string, r##"<node id="{0}" name="{0}" type="NODE"><matrix sid="transform">1 0 0 0 0 1 0 0 0 0 1 0 0 0 0 1</matrix><instance_geometry url="#{0}-mesh"/>"##, name).unwrap();
+
+	{
+		let transform = Matrix4::from_angle_x(Deg(-90.0));
+
+		for (tag_name, position) in cem.model.tag_points.iter().zip(cem.model.frames[0].tag_points.iter()) {
+			let position = Point3::from_homogeneous(transform * position.to_homogeneous());
+
+			writeln!(string, "    <node name=\"{}\">\n", tag_name).unwrap();
+			writeln!(string, "    <translate>{} {} {}</translate>", position.x, position.y, position.z).unwrap();
+			writeln!(string, "    <instance_light url=\"#{}-light\" />\n", tag_name).unwrap();
+			string.push_str("</node>");
+		}
+	}
+
+	string.push_str("</node>");
 
 	string.push_str(r##"  </visual_scene></library_visual_scenes>"##);
 	string.push('\n');
