@@ -147,7 +147,7 @@ fn convert<I, O>(mut i: I, mut o: O, input_format: Format, format: Format) -> io
 			if header == V2::HEADER {
 				Scene::<V2>::read_without_header(&mut i)?.write(&mut o)
 			} else {
-				unimplemented!("Cannon rewrite non-CEMv2 files yet.")
+				unimplemented!("Cannot rewrite non-CEMv2 files yet.")
 			}
 		},
 		(Format::Cem { version: (_, _), frame_index }, Format::Obj) => {
@@ -164,7 +164,7 @@ fn convert<I, O>(mut i: I, mut o: O, input_format: Format, format: Format) -> io
 
 				o.write_all(buffer.as_bytes())
 			} else {
-				unimplemented!("Cannon convert non-CEMv2 files to OBJ yet.")
+				unimplemented!("Cannot convert non-CEMv2 files to OBJ yet.")
 			}
 		},
 		(Format::Cem { version: (_, _), frame_index }, Format::Collada) => {
@@ -177,7 +177,7 @@ fn convert<I, O>(mut i: I, mut o: O, input_format: Format, format: Format) -> io
 
 				o.write_all(buffer.as_bytes())
 			} else {
-				unimplemented!("Cannon convert non-CEMv2 files to COLLADA yet.")
+				unimplemented!("Cannot convert non-CEMv2 files to COLLADA yet.")
 			}
 		},
 		_ => unimplemented!()
